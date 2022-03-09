@@ -1,5 +1,5 @@
 # HW4_Suhr_Alexis
-STAA 566 - Homework 4 - Tables Assignment  
+STAA 566 Assignment 4 - Tables Assignment  
 
 Make a dynamic figure. Describe the following:
 
