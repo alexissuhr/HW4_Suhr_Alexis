@@ -1,0 +1,277 @@
+---
+title: "STAA 566 - Homework 4 - Table"
+author: "Alexis Suhr"
+date: "10 March 2022"
+output: html_document
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
+---
+
+
+
+### Assignment Summary   
+**Make a dynamic figure. Describe the following:**  
+
+
+**1. Data Source(s)**    
+
+
+(a) 'mpg' from the 'ggplot2' package**\
+(38 observations of popular car models' make, class, engine size, transmission, and fuel economy in 1999 and 2008)
+
+(b) 'Transportation Energy-Related Carbon Dioxide Emissions' from the U.S. Energy Information Administration (EIA) website** *(CO2 emissions by U.S. state for the years 1980 - 2018)
+
+
+**2. What I want to convey in the Table(s)**  
+I want to show users the CO2 emmissions data in the same context as the 'mpg' dataset from 'ggplot2' to give a related idea of emissions with other vehicular transportation statistics.  
+
+**3. What functionality I put in the Table(s)/What formatting I put in the Table(s) and why **  
+I wanted to make the tables easy to read and concise. I added the 'hover' function as a way for readers to highlight the portion of the table they're reading. I also changed style options including font type, font size, and was able to put the title in bold and with larger font than the rest of its corresponding table.  
+
+
+### Libraries, Packages
+
+```{r include=FALSE, warning = FALSE}
+###### 
+# Read in libraries to be used 
+###### 
+# install.packages(c('ggplot2',
+#           'DataExplorer',
+#           'tidyverse',
+#           'plotly',
+#           'readr',
+#           'rworldmap',
+#           'sf',
+#           'rgeos',
+#           'poliscidata',
+#           'tigris',
+#           'usmap',
+#           'viridis',
+#           'gridExtra',
+#           'shiny',
+#           'shinydashboard',
+#           'babynames',
+#           'kableExtra',
+#           'R.utils',
+#           'summarytools'))
+
+libs <- c('ggplot2',
+          'DataExplorer',
+          'tidyverse',
+          'plotly',
+          'readr',
+          'rworldmap',
+          'sf',
+          'rgeos',
+          'poliscidata',
+          'tigris',
+          'usmap',
+          'viridis',
+          'gridExtra',
+          'shiny',
+          'shinydashboard',
+          'babynames',
+          'kableExtra',
+          'R.utils',
+          'summarytools',
+          'readr')
+
+
+for(l in libs){
+  suppressPackageStartupMessages(library(l,
+                                         quietly = TRUE,
+                                         character.only = TRUE))
+}
+```
+
+### Reading in Data to Be Used for Analysis  
+
+```{r echo = FALSE, warning = FALSE}
+#####
+# Loading in 'babynames' to verify shiny dashboard 
+# creation/commands used in relation to the dataset
+#####
+# **Do not need to include in final knitting process**
+# **COMMENT OUT**
+# babynames_ExampleData <- babynames::babynames
+
+#####
+# Fuel Economy data from 'mpg' in 'ggplot2'
+#####
+# ?mpg
+FuelEconData <- ggplot2::mpg %>%
+  mutate(Manufacturer = as.factor(R.utils::capitalize(manufacturer)), 
+         
+         # Name of manufacturer
+         Model = as.factor(toupper(model)),
+         # Model of car
+         
+         EngineDisplacement = displ, 
+         # Liters of engine displacement (total volume of all the 
+         # cylinders in an engine)
+         
+         YearManufactured = as.factor(year), 
+         # Year manufactured
+         
+         NumCylinders = as.factor(cyl), 
+         # Number of engine cylinders (4, 5, 6, or 8)
+         
+         TransmissionType1 = as.factor(substr(R.utils::capitalize(trans), 1, nchar(trans)-4)),
+         TransmissionType2 = as.factor(toupper(substr(trans, nchar(trans)-2, nchar(trans)))),
+         # The above two variables are separating the 'trans' string 
+         # and capitalizing certain values to make the data look nicer
+         
+         TransmissionType = as.factor(paste0(TransmissionType1, " (", TransmissionType2)),
+         # Type of engine transmission
+         
+         DriveTrain = as.factor(case_when(drv =='f' ~ 'Front-Wheel',
+                                          drv == 'r' ~ 'Rear-Wheel',
+                                          drv == '4' ~ 'Four-Wheel')), 
+         # Type of Drive Train 
+         #(front-wheel, rear-wheel, 4-wheel)
+         
+         CityMPG = cty, 
+         # City fuel efficiency (mpg)
+         
+         HighwayMPG = hwy, 
+         # Highway fuel efficiency (mpg)
+         
+         FuelType = as.factor(case_when(fl == 'e' ~ 'Ethanol-85',
+                                        fl == 'd' ~ 'Diesel',
+                                        fl == 'r' ~ 'Regular',
+                                        fl == 'p' ~ 'Premium',
+                                        fl == 'c' ~'Methane (CNG)')), 
+         # Type of fuel used to run vehicle 
+         # (ethanol 85,diesel,regular,premium,compressed natural gas aka Methane/CNG)
+         CarType = as.factor(case_when(class == '2seater' ~ 'Two-Seater',
+                                       class == 'compact' ~ 'Compact',
+                                       class == 'midsize' ~ 'Midsize',
+                                       class == 'minivan' ~ 'Minivan',
+                                       class == 'pickup' ~ 'Pickup',
+                                       class == 'subcompact' ~ 'Subcompact',
+                                       class == 'suv' ~ 'SUV'))
+         # Type of car build 
+         # (2seater, compact, midsize, minivan, pickup, subcompact, suv)
+  ) %>% 
+  select(Manufacturer:CarType, 
+         -c(TransmissionType1, 
+            TransmissionType2)) %>%
+  filter(CarType != 'Two-Seater',
+         NumCylinders != '5')
+
+#####
+# CO2 emissions and Changes in CO2 emisions for 1999, 2008, 2015
+#####
+
+CO2EmissionsData <- read.csv("~/HW4_Suhr_Alexis/Datasets/CO2Emissions.csv") %>%
+  mutate(state = state.abb[match(ï..State, state.name)],
+         CO2_1999 = X1999,
+         CO2_2008 = X2008,
+         Change_1999_2008 = CO2_2008 - CO2_1999) %>%
+  select(state,
+         CO2_1999,
+         CO2_2008,
+         Change_1999_2008)
+
+
+#####
+# Viewing first 6 rows of each dataset
+#####
+
+# kable(head(FuelEconData))
+# head(CO2EmissionsData)
+```
+
+### Tables  
+
+
+```{r fig.align = "center", eval = TRUE, echo = FALSE, warning = FALSE, error = FALSE, message = FALSE}
+
+###### 
+# 'mpg' Data from the 'ggplot2' Package  
+#####
+
+SummaryTable_1999 <- summarytools::descr(FuelEconData %>%
+                             select(YearManufactured,
+                                    CityMPG, 
+                                    HighwayMPG) %>%
+                             filter(YearManufactured == '1999'))
+
+SummaryTable_2008 <- summarytools::descr(FuelEconData %>%
+                             select(YearManufactured,
+                                    CityMPG, 
+                                    HighwayMPG) %>%
+                             filter(YearManufactured == '2008'))
+
+
+Kable_1999Summary <- SummaryTable_1999[c(1:7, 9), ] %>%
+  kbl(caption = "<b>Fuel Efficiency (1999)<b>",
+      digits = 2,
+      col.names = c("City MPG",
+                    "Highway MPG"),
+        align = "c") %>%
+    kable_minimal() %>%
+    kable_paper("hover",
+                full_width = F,
+                html_font = "Times",
+                font_size = 18) %>%
+  gsub("font-size: initial !important;",
+       "font-size: 20pt !important;",
+       .) 
+
+
+Kable_2008Summary <- SummaryTable_2008[c(1:7, 9), ] %>%
+  kbl(caption = "<b>Fuel Efficiency (2008)<b>",
+      digits = 2,
+      col.names = c("City MPG",
+                    "Highway MPG"),
+        align = "c") %>%
+    kable_minimal() %>%
+    kable_paper("hover",
+                full_width = F,
+                html_font = "Times",
+                font_size = 18) %>%
+  gsub("font-size: initial !important;",
+       "font-size: 20pt !important;",
+       .)
+
+#### 'CO2 Emissions' Data from the United States EIA   
+
+SummaryTable_CO2 <- descr(CO2EmissionsData[c(2:4), ])
+
+
+Kable_CO2Summary <- SummaryTable_CO2[c(1:7, 9), ] %>%
+    kbl(caption = "<b>CO2 Emmissions by Year<b>",
+        digits = 2,
+        col.names = c("1999",
+                      "2008",
+                      "(2008-1999)"),
+        align = "c") %>%
+    kable_minimal() %>%
+    kable_paper("striped", 
+                "hover",
+                full_width = F,
+                html_font = "Times",
+                font_size = 18) %>%
+    footnote(symbol=c("Note: (2008-1999) is the difference in CO2 emissions from the year 1999 to the year 2008, obtained by subtracting column 1999 from column 2008")) %>%
+  gsub("font-size: initial !important;",
+       "font-size: 20pt !important;",
+       .) %>%
+  kable_styling(bootstrap_options = c("striped", "hover"))
+
+
+
+```
+
+```{r echo = FALSE, warning = FALSE}
+#####
+# Summary Tables
+#####
+Kable_1999Summary
+Kable_2008Summary
+Kable_CO2Summary
+
+```
